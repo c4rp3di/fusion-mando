@@ -50,6 +50,10 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
 .st span{grid-column:1/4;font-size:.75rem;font-weight:700;color:#444}
 .st button{min-height:38px;border-radius:8px;border:1.5px solid #0b6b8a;background:#fff;color:#0b6b8a;font:inherit;font-weight:800;padding:0}
 .st i{font-style:normal;font-weight:800}
+.pan.sheet{background:rgba(255,255,255,.84);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.pan.fold>*:not(.hd){display:none}
+.pan.sheet .hd button.fo{flex:none;min-height:36px;width:40px;padding:0;margin-right:6px}
+.top #m_pf{max-width:118px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 [hidden]{display:none!important}
 </style></head><body><main>
@@ -58,6 +62,7 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
 <button id="m_rc" class="no2" type="button" aria-label="Cancelar" hidden>✕</button>
 <button id="m_ad" type="button" aria-label="Añadir botón" hidden>＋</button>
 <button id="m_ed" class="ok2" type="button" aria-label="Terminar edición" hidden>Hecho</button>
+<button id="m_pf" type="button" aria-label="Mandos guardados"></button>
 <button id="m_mb" type="button" aria-label="Macros">⚡</button>
 <button id="m_cfg" type="button" aria-label="Ajustes">⚙</button></div>
 <div id="m_wrap"><div id="m_remote"></div></div>
@@ -92,6 +97,15 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
   <div class="row"><button id="m_new" class="main" type="button">Grabar nueva macro</button><button id="m_mx" type="button">Cerrar</button></div>
 </div>
 
+<div id="m_prof" class="pan top0 scr" hidden>
+  <b>Mandos guardados</b>
+  <div id="p_list" class="mlist"></div>
+  <label>Nombre</label><input id="p_nm" maxlength="20" autocomplete="off" placeholder="Nombre del mando">
+  <div class="row"><button id="p_new" class="main" type="button">Guardar copia del actual</button></div>
+  <div class="row"><button id="p_ren" type="button">Renombrar el actual</button><button id="p_x" type="button">Cerrar</button></div>
+  <p>Los cambios se guardan en el mando activo. Para probar sin perder el actual, guarda primero una copia y edita esa. Las macros son comunes a todos los mandos.</p>
+</div>
+
 <div id="m_addp" class="pan top0" hidden>
   <b>Añadir botón</b>
   <label>Tecla del mando</label><select id="a_key"></select>
@@ -102,7 +116,7 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
 </div>
 
 <div id="m_em" class="pan bot sheet" hidden>
-  <div class="row" style="margin:0"><b id="e_t" style="flex:1;margin:0"></b><button id="e_x" class="main" type="button" style="flex:none;min-height:36px">Hecho</button></div>
+  <div class="row hd" style="margin:0"><button id="e_f" class="fo" type="button" aria-label="Plegar">▾</button><b id="e_t" style="flex:1;margin:0"></b><button id="e_x" class="main" type="button" style="flex:none;min-height:36px">Hecho</button></div>
   <div class="g2">
     <label>Texto<input id="e_l" maxlength="14" autocomplete="off"></label>
     <label id="e_cw">Código (8 hex)<input id="e_cd" maxlength="8" autocomplete="off" autocapitalize="characters"></label>
@@ -182,14 +196,23 @@ function defLayout(){
 (function(){
   var W=$("m_wrap"),R=$("m_remote"),msg=$("m_msg"),info={},noIr=false;
   var custom=Store.get("mcodes",{}),macros=Store.get("macros",[]);
-  var cfg=Store.get("cfg",{});for(var k0 in DEFCFG)if(cfg[k0]==null)cfg[k0]=DEFCFG[k0];
+  var cfg=Store.get("cfg",{});
   var layout=Store.get("layout",null);
   if(!Array.isArray(layout)||!layout.length)layout=defLayout();
+  /* mandos guardados (perfiles): el activo se guarda solo al editar */
+  var profiles=Store.get("profiles",null),prof=null;
+  if(!Array.isArray(profiles)||!profiles.length)profiles=[{id:"p1",name:"Samsung AA59",layout:layout,cfg:cfg,codes:custom}];
+  var pid=Store.get("pid","");
+  profiles.forEach(function(p){if(p.id===pid)prof=p});if(!prof)prof=profiles[0];
+  layout=prof.layout;cfg=prof.cfg||{};custom=prof.codes||{};
+  for(var k0 in DEFCFG)if(cfg[k0]==null)cfg[k0]=DEFCFG[k0];
+  var folded=false;
   var edit=false,sel=null,drag=null,pend=null,hold=null,rec=false,recSteps=[],recName="",lastT=0,running=false,runT=null,geo={cw:20,u:20};
 
   function say(t,c){msg.textContent=t;msg.className=c||""}
-  function saveL(){Store.set("layout",layout)}
-  function saveC(){Store.set("cfg",cfg)}
+  function persist(){prof.layout=layout;prof.cfg=cfg;prof.codes=custom;Store.set("profiles",profiles);Store.set("pid",prof.id)}
+  function saveL(){persist()}
+  function saveC(){persist()}
   if(!NB){noIr=true;say("Necesita la app nativa","err")}
   else{try{info=JSON.parse(NB.irInfo())}catch(e){}
     if(!info.has){noIr=true;say("Este móvil no tiene emisor de infrarrojos","err")}}
@@ -257,7 +280,7 @@ function defLayout(){
     if(pend&&!pend.cancel&&Math.hypot(e.clientX-pend.x,e.clientY-pend.y)>10){pend.cancel=true;clearTimeout(pend.t)}
     if(!drag)return;var it=byId(drag.id);if(!it)return;
     var dx=e.clientX-drag.x,dy=e.clientY-drag.y;
-    if(!drag.moved&&Math.hypot(dx,dy)<6)return;drag.moved=true;
+    if(!drag.moved&&Math.hypot(dx,dy)<6)return;if(!drag.moved){var sh=$("m_em");sh.style.opacity=".2";sh.style.pointerEvents="none"}drag.moved=true;
     var nc=clamp(drag.c+Math.round(dx/geo.cw),1,13-it.w),ny=Math.max(1,drag.yy+Math.round(dy/geo.u));
     if(nc!==it.c||ny!==it.y){it.c=nc;it.y=ny;
       var el=R.querySelector('[data-i="'+it.i+'"]');if(el){el.style.gridColumn=nc+"/span "+it.w;el.style.gridRow=ny+"/span "+it.h}
@@ -265,9 +288,9 @@ function defLayout(){
   function up(){
     stop();
     if(pend){clearTimeout(pend.t);var p=pend;pend=null;if(!p.h&&!p.cancel)act(byId(p.id),false)}
-    if(drag){var d=drag;drag=null;if(d.moved){saveL();draw();placeSheet()}}}
+    if(drag){var d=drag;drag=null;var sh2=$("m_em");sh2.style.opacity="";sh2.style.pointerEvents="";if(d.moved){saveL();draw();placeSheet()}}}
   document.addEventListener("pointerup",up);
-  document.addEventListener("pointercancel",function(){stop();if(pend){clearTimeout(pend.t);pend=null}if(drag){drag=null;draw()}});
+  document.addEventListener("pointercancel",function(){stop();if(pend){clearTimeout(pend.t);pend=null}if(drag){drag=null;$("m_em").style.opacity="";$("m_em").style.pointerEvents="";draw()}});
   R.addEventListener("contextmenu",function(e){e.preventDefault()});
   R.addEventListener("click",function(e){var bt=e.target.closest("button[data-i]");
     if(bt&&e.detail===0&&!edit)act(byId(bt.getAttribute("data-i")),false)});
@@ -275,9 +298,9 @@ function defLayout(){
 
   /* ---------- barra superior ---------- */
   function ui(){var busy=rec||running;
-    $("m_mb").hidden=busy||edit;$("m_cfg").hidden=busy||edit;
+    $("m_mb").hidden=busy||edit;$("m_cfg").hidden=busy||edit;$("m_pf").hidden=busy||edit;
     $("m_rc").hidden=!busy;$("m_rs").hidden=!rec;$("m_ed").hidden=!edit;$("m_ad").hidden=!edit}
-  function closePanels(){["m_set","m_mac","m_addp"].forEach(function(id){$(id).hidden=true})}
+  function closePanels(){["m_set","m_mac","m_addp","m_prof"].forEach(function(id){$(id).hidden=true})}
 
   /* ---------- ajustes ---------- */
   function mkSw(el,cb,get){el.innerHTML=COLORS.map(function(c){return'<button type="button" data-c="'+c+'" style="background:'+c+'" aria-label="'+c+'"></button>'}).join("");
@@ -303,7 +326,7 @@ function defLayout(){
     btn.addEventListener("click",function(){if(!armed){armed=true;btn.classList.add("sure");btn.textContent="¿Seguro?";setTimeout(function(){armed=false;btn.classList.remove("sure");btn.textContent=old},3000);return}
       armed=false;btn.classList.remove("sure");btn.textContent=old;fn()})}
   twoTap($("s_rl"),"",function(){layout=defLayout();sel=null;saveL();$("m_set").hidden=true;say("Diseño restablecido","ok");draw()});
-  twoTap($("s_rc"),"",function(){custom={};Store.set("mcodes",custom);say("Códigos restablecidos","ok");draw()});
+  twoTap($("s_rc"),"",function(){custom={};persist();say("Códigos restablecidos","ok");draw()});
 
   /* ---------- modo edición ---------- */
   $("s_edit").addEventListener("click",function(){closePanels();edit=true;select(null);ui();say("Toca un botón para editarlo; arrástralo para moverlo","ok");draw()});
@@ -311,7 +334,8 @@ function defLayout(){
   function placeSheet(){var s=$("m_em");if(!sel){s.hidden=true;return}
     var el=R.querySelector('[data-i="'+sel+'"]');s.hidden=false;
     if(el){var r=el.getBoundingClientRect(),mid=r.top+r.height/2;
-      s.className="pan sheet "+(mid>innerHeight*0.5?"top0":"bot")}}
+      s.className="pan sheet "+(mid>innerHeight*0.5?"top0":"bot")+(folded?" fold":"")}
+    $("e_f").textContent=folded?"▴":"▾"}
   function select(id){sel=id;draw();if(id)fillSheet();placeSheet()}
   var shSel=$("e_sh");shSel.innerHTML=SHAPES.map(function(s){return'<option value="'+s[0]+'">'+s[1]+'</option>'}).join("");
   mkSw($("e_bg"),function(c){var it=cur();if(it){it.bg=c;saveL();fillSheet();draw()}});
@@ -330,11 +354,12 @@ function defLayout(){
     saveL();fillSheet();draw();placeSheet()});
   $("e_l").addEventListener("input",function(){var it=cur();if(it){it.l=this.value;saveL();draw()}});
   $("e_cd").addEventListener("input",function(){var it=cur();if(!it||it.t!=="k")return;var v=this.value.trim().toUpperCase();
-    if(v===""||/^[0-9A-F]{8}$/.test(v)){this.className="";if(v===""||v===SAM_KEYS[it.r])delete custom[it.r];else custom[it.r]=v;Store.set("mcodes",custom);draw()}
+    if(v===""||/^[0-9A-F]{8}$/.test(v)){this.className="";if(v===""||v===SAM_KEYS[it.r])delete custom[it.r];else custom[it.r]=v;persist();draw()}
     else this.className="bad"});
   shSel.addEventListener("change",function(){var it=cur();if(it){it.sh=this.value;saveL();draw()}});
   $("e_fs").addEventListener("input",function(){var it=cur();if(it){it.fs=+this.value;$("e_fv").textContent=this.value+" %";saveL();draw()}});
   $("e_x").addEventListener("click",function(){select(null)});
+  $("e_f").addEventListener("click",function(){folded=!folded;placeSheet()});
   function bottom(){var b=0;layout.forEach(function(it){b=Math.max(b,it.y+it.h-1)});return b}
   function newId(){return"u"+Date.now().toString(36)+Math.floor(Math.random()*1000)}
   function addItem(t,r){var it={i:newId(),t:t,r:r,l:"",c:1,y:bottom()+1,w:4,h:2,sh:"rd",bg:t==="m"?"#6b4fbb":"#2a2a2d",fg:t==="m"?"#ffffff":"#f2f2f2",fs:100};
@@ -369,7 +394,7 @@ function defLayout(){
     if(pin){var mm=macroById(pin);if(mm){addItem("m",mm.id);draw();say("«"+mm.name+"» añadida al final del mando (Ajustes › Editar botones para moverla)","ok");$("m_mac").hidden=true}}
     if(dl){if(!t.classList.contains("sure")){t.classList.add("sure");t.textContent="¿Borrar?";return}
       macros=macros.filter(function(x){return String(x.id)!==dl});Store.set("macros",macros);
-      layout=layout.filter(function(x){return!(x.t==="m"&&String(x.r)===dl)});saveL();draw();renderMac()}});
+      profiles.forEach(function(pp){pp.layout=pp.layout.filter(function(x){return!(x.t==="m"&&String(x.r)===dl)})});layout=prof.layout;persist();draw();renderMac()}});
   $("m_new").addEventListener("click",function(){recName=($("m_nm").value||"").trim()||("Macro "+(macros.length+1));$("m_nm").value="";
     $("m_mac").hidden=true;rec=true;recSteps=[];lastT=0;ui();say("● Grabando: pulsa los botones","ok")});
   $("m_rs").addEventListener("click",function(){
@@ -381,6 +406,29 @@ function defLayout(){
     else if(rec){rec=false;recSteps=[];say("Grabación cancelada")}
     ui()});
 
-  ui();draw();
+  /* ---------- mandos guardados ---------- */
+  function updPf(){$("m_pf").textContent="▤ "+prof.name}
+  function clone(o){return JSON.parse(JSON.stringify(o))}
+  function loadProf(p){prof=p;layout=p.layout;cfg=p.cfg;for(var k in DEFCFG)if(cfg[k]==null)cfg[k]=DEFCFG[k];
+    custom=p.codes||(p.codes={});sel=null;Store.set("pid",p.id);updPf();$("m_em").hidden=true;W.scrollTop=0;draw()}
+  function renderProf(){
+    $("p_list").innerHTML=profiles.map(function(p){var act=p.id===prof.id;
+      return'<div class="row"><button class="'+(act?"main":"")+'" type="button" data-sel="'+p.id+'">'+(act?"✓ ":"")+esc(p.name)+'</button>'+(profiles.length>1?'<button class="del" type="button" data-pdel="'+p.id+'" aria-label="Borrar">✕</button>':"")+'</div>'}).join("")}
+  $("m_pf").addEventListener("click",function(){closePanels();renderProf();$("p_nm").value="";$("m_prof").hidden=false});
+  $("p_x").addEventListener("click",function(){$("m_prof").hidden=true});
+  $("p_list").addEventListener("click",function(e){var t=e.target.closest("button");if(!t)return;
+    var id=t.getAttribute("data-sel"),dl=t.getAttribute("data-pdel");
+    if(id){var p=profiles.filter(function(x){return x.id===id})[0];if(p){persist();loadProf(p);$("m_prof").hidden=true;say("Mando: "+p.name,"ok")}}
+    if(dl){if(!t.classList.contains("sure")){t.classList.add("sure");t.textContent="¿Borrar?";return}
+      var wasAct=dl===prof.id;profiles=profiles.filter(function(x){return x.id!==dl});
+      if(wasAct)loadProf(profiles[0]);Store.set("profiles",profiles);renderProf()}});
+  $("p_new").addEventListener("click",function(){
+    var nm=($("p_nm").value||"").trim()||("Mando "+(profiles.length+1));persist();
+    var n={id:"p"+Date.now().toString(36),name:nm,layout:clone(layout),cfg:clone(cfg),codes:clone(custom)};
+    profiles.push(n);Store.set("profiles",profiles);loadProf(n);$("m_prof").hidden=true;say("Copia guardada y activa: "+nm,"ok")});
+  $("p_ren").addEventListener("click",function(){var nm=($("p_nm").value||"").trim();if(!nm){say("Escribe el nuevo nombre","err");return}
+    prof.name=nm;persist();updPf();renderProf();$("p_nm").value="";say("Renombrado","ok")});
+
+  updPf();ui();draw();
 })();
 </script></body></html>
