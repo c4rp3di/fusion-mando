@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark"><title>Mando</title>
+<style>
+:root{--ink:#e8eef4;--mute:#9db0c3;--ok:#6fd49a;--err:#ff8a7a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#0b0f14;color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:360px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) 10px max(18px,env(safe-area-inset-bottom))}
+.row{display:flex;gap:10px;margin:0 0 10px}
+.hint{color:var(--mute);font-size:.85rem;margin:6px 0 0}
+.msg{min-height:1.3em;margin:4px 2px 8px;color:var(--mute);font-size:.92rem}.msg.ok{color:var(--ok);font-weight:600}.msg.err{color:var(--err);font-weight:600}
+input{width:100%;font:inherit;border:1.5px solid #ccc;border-radius:10px;padding:0 10px}
+.row>button{flex:1;font:inherit;font-weight:600;min-height:44px;border-radius:12px;border:1.5px solid #2b3d52;background:#16273b;color:var(--ink)}
+.sm{background:linear-gradient(#1b1b1d,#0c0c0d);border:2px solid #000;border-radius:22px 22px 30px 30px;padding:14px 12px 18px;max-width:340px;margin:0 auto 12px;box-shadow:0 4px 14px rgba(0,0,0,.35);color:#eee}
+.sm .g{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:0 0 11px;align-items:center;justify-items:stretch}
+.sm .g.c1{grid-template-columns:1fr}
+.sm button{background:#2a2a2d;border:1px solid #000;color:#f2f2f2;border-radius:9px;min-height:44px;font-size:.78rem;font-weight:700;padding:0 2px;line-height:1.1;box-shadow:0 2px 0 #000;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.sm button:active{transform:translateY(1px);filter:brightness(1.4)}
+.sm button.num{font-size:1.45rem;min-height:48px}
+.sm button.pw{background:#d0262d;border-radius:50%;width:56px;height:56px;min-height:56px;justify-self:start;font-size:1.4rem;box-shadow:0 2px 0 #600}
+.sm button.rock{background:#9aa5cf;color:#10142a;min-height:122px;font-size:1.5rem;border-radius:8px}
+.sm button.rock small{font-size:.7rem;font-weight:800}
+.sm button.hexb{background:#e8e2bf;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);min-height:60px;border:0;box-shadow:none}
+.sm .cr{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:0 0 11px}
+.sm .cr button{min-height:52px;font-size:1.25rem}
+.sm button.ca{background:#d0262d}.sm button.cb{background:#1f8f6a}.sm button.cc{background:#e0a920;color:#222}.sm button.cd{background:#2f5fd0}
+.sm button.rec{color:#ff3b3b}
+.sm button.low{font-size:.7rem}
+.sm button.ed{outline:3px solid #f5a623}
+.sm button.nocode{opacity:.55;border-style:dashed}
+.sm .em{background:#fff;color:#111;border-radius:10px;padding:8px;margin:0 0 10px}
+.sm .em input{min-height:40px;color:#111;background:#fff}
+.sm .em button{background:#0b6b8a;color:#fff;min-height:40px;flex-direction:row}
+[hidden]{display:none!important}
+</style></head><body><main>
+<div id="m_st" class="msg"></div>
+<div id="m_remote"></div>
+<div id="m_msg" class="msg" role="status" aria-live="polite"></div>
+<div class="row"><button id="m_edit" type="button">Editar códigos</button></div>
+<p class="hint">Apunta el borde superior del móvil a la tele. Mantén pulsado Vol, Canal, flechas y ⏪ ⏩ para repetir. Los botones con borde discontinuo no tienen código: usa «Editar códigos» para asignarles uno.</p>
+</main>
+<script>
+var NB=window.Rumbo||null;
+function $(id){return document.getElementById(id)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+var Store={
+  get:function(k,d){try{var v=NB?NB.load(k):localStorage.getItem("rumbo_"+k);return v?JSON.parse(v):d}catch(e){return d}},
+  set:function(k,v){try{var s=JSON.stringify(v);if(NB)NB.save(k,s);else localStorage.setItem("rumbo_"+k,s);return true}catch(e){return false}}};
+function irBits(v,n){var b=[],i;for(i=0;i<n;i++)b.push((v>>i)&1);return b}
+function irSamsung(addr,cmd){
+  var bits=irBits(addr&255,8).concat(irBits(addr&255,8),irBits(cmd&255,8),irBits(~cmd&255,8)),p=[4500,4500];
+  bits.forEach(function(b){p.push(560,b?1690:560)});p.push(560);return{freq:38000,pattern:p}}
+function rev8(b){var r=0,i;for(i=0;i<8;i++)r|=((b>>i)&1)<<(7-i);return r}
+/*MANDO-START*/
+var SAM_KEYS={
+pwr:"E0E040BF",src:"E0E0807F",hdmi:"E0E0D12E",
+n1:"E0E020DF",n2:"E0E0A05F",n3:"E0E0609F",n4:"E0E010EF",n5:"E0E0906F",n6:"E0E050AF",n7:"E0E030CF",n8:"E0E0B04F",n9:"E0E0708F",n0:"E0E08877",
+ttx:"E0E034CB",prech:"E0E0C837",
+vup:"E0E0E01F",vdn:"E0E0D02F",mute:"E0E0F00F",cup:"E0E048B7",cdn:"E0E008F7",chlist:"E0E0D629",
+menu:"E0E058A7",hub:"E0E09E61",guide:"E0E0F20D",tools:"E0E0D22D",info:"E0E0F807",
+up:"E0E006F9",dn:"E0E08679",lf:"E0E0A659",rt:"E0E046B9",ok:"E0E016E9",ret:"E0E01AE5",exit:"E0E0B44B",
+a:"E0E036C9",b:"E0E028D7",c:"E0E0A857",d:"E0E06897",
+fam:"",search:"",dual:"E0E000FF",
+supp:"E0E0FC03",psize:"E0E07C83",subt:"E0E0A45B",
+rew:"E0E0A25D",pause:"E0E052AD",ff:"E0E012ED",rec:"E0E0926D",play:"E0E0E21D",stop:"E0E0629D"};
+var SAM_NAMES={pwr:"Encender/apagar",src:"Source",hdmi:"HDMI",ttx:"TTX/MIX",prech:"PRE-CH",vup:"Vol +",vdn:"Vol −",mute:"Mute",cup:"Canal +",cdn:"Canal −",chlist:"CH LIST",menu:"Menu",hub:"Smart Hub",guide:"Guide",tools:"Tools",info:"Info",up:"Arriba",dn:"Abajo",lf:"Izquierda",rt:"Derecha",ok:"OK",ret:"Return",exit:"Exit",a:"A",b:"B",c:"C",d:"D",fam:"Family Story",search:"Search",dual:"Dual I-II",supp:"Support",psize:"P.SIZE",subt:"AD/SUBT.",rew:"Rebobinar",pause:"Pausa",ff:"Avance",rec:"Grabar",play:"Play",stop:"Stop"};
+for(var i=0;i<10;i++)SAM_NAMES["n"+i]=String(i);
+function samCode(hex){
+  var n=parseInt(hex,16);if(!hex||hex.length!==8||isNaN(n))return null;
+  return irSamsung(rev8((n>>>24)&255),rev8((n>>>8)&255))}
+function initMando(){
+  var R=$("m_remote"),msg=$("m_msg"),st=$("m_st"),custom=Store.get("mcodes",{}),edit=false,sel=null,hold=null,info={};
+  if(!NB){st.textContent="Este mando necesita la app nativa para usar el emisor infrarrojo.";}
+  else{try{info=JSON.parse(NB.irInfo())}catch(e){}
+    if(!info.has){st.textContent="Este móvil no tiene emisor de infrarrojos.";st.className="msg err"}}
+  function say(t,c){msg.textContent=t;msg.className="msg"+(c?" "+c:"")}
+  function code(k){return custom[k]!=null&&custom[k]!==""?custom[k]:SAM_KEYS[k]}
+  function B(k,lab,cls,hl){var c=code(k);
+    return'<button type="button" data-k="'+k+'" class="'+(cls||"")+(hl?" hold":"")+(c?"":" nocode")+(sel===k?" ed":"")+'" aria-label="'+esc(SAM_NAMES[k])+'">'+lab+'</button>'}
+  function N(d){return B("n"+d,d,"num")}
+  function draw(){
+    R.innerHTML='<div class="sm">'
+    +'<div class="g">'+B("pwr","⏻","pw")+'<span></span>'+B("src","SOURCE")+'</div>'
+    +'<div class="g"><span></span>'+B("hdmi","HDMI")+'<span></span></div>'
+    +'<div class="g">'+N(1)+N(2)+N(3)+N(4)+N(5)+N(6)+N(7)+N(8)+N(9)+B("ttx","TTX/MIX","low")+N(0)+B("prech","PRE-CH","low")+'</div>'
+    +'<div class="g">'+'<div style="display:grid;gap:6px">'+B("vup","+","rock",1)+B("vdn","−","rock",1)+'</div>'
+      +'<div style="display:grid;gap:9px">'+B("mute","MUTE")+B("chlist","CH LIST","low")+'</div>'
+      +'<div style="display:grid;gap:6px">'+B("cup","⌃","rock",1)+B("cdn","⌄","rock",1)+'</div></div>'
+    +'<div class="g">'+B("menu","MENU")+B("hub","","hexb")+B("guide","GUIDE")+'</div>'
+    +'<div class="g">'+B("tools","TOOLS")+B("up","▲","num",1)+B("info","INFO")+'</div>'
+    +'<div class="g">'+B("lf","◀","num",1)+B("ok","⏎","num")+B("rt","▶","num",1)+'</div>'
+    +'<div class="g">'+B("ret","RETURN")+B("dn","▼","num",1)+B("exit","EXIT")+'</div>'
+    +'<div class="g" style="grid-template-columns:repeat(4,1fr)">'+B("a","A","ca")+B("b","B","cb")+B("c","C","cc")+B("d","D","cd")+'</div>'
+    +'<div class="g">'+B("fam","Family Story","low")+B("search","SEARCH","low")+B("dual","DUAL I-II","low")+'</div>'
+    +'<div class="g">'+B("supp","SUPPORT","low")+B("psize","P.SIZE","low")+B("subt","AD/SUBT.","low")+'</div>'
+    +'<div class="g">'+B("rew","⏪","",1)+B("pause","⏸")+B("ff","⏩","",1)+'</div>'
+    +'<div class="g">'+B("rec","●","rec")+B("play","▶")+B("stop","■")+'</div>'
+    +'<div class="em" id="m_em" '+(edit&&sel?"":"hidden")+'><b id="m_en"></b><input id="m_ec" autocapitalize="characters" maxlength="8" placeholder="E0E040BF (8 hex)" style="margin:6px 0">'
+    +'<div class="row" style="margin:0"><button id="m_es" type="button">Guardar</button><button id="m_er" type="button">Restablecer</button></div></div>'
+    +'</div>';
+    if(edit&&sel){$("m_en").textContent=SAM_NAMES[sel];$("m_ec").value=code(sel)||""}}
+  function press(k){var c=code(k);if(!c){say("«"+SAM_NAMES[k]+"» no tiene código. Pulsa «Editar códigos» para asignarlo.","err");return false}
+    var r=samCode(c);if(!r){say("Código no válido para "+SAM_NAMES[k],"err");return false}
+    if(!NB){say("Solo funciona en la app nativa","err");return false}
+    var res=NB.irSend(r.freq,r.pattern.join(","));
+    if(res!=="ok"){say(res==="no"?"Este móvil no tiene emisor IR":res==="freq"?"Frecuencia fuera del rango del emisor":"El emisor rechazó la señal ("+res+")","err");return false}
+    say("");if(navigator.vibrate)navigator.vibrate(12);return true}
+  function stop(){if(hold){clearInterval(hold);hold=null}}
+  R.addEventListener("pointerdown",function(e){var bt=e.target.closest("button[data-k]");if(!bt)return;var k=bt.getAttribute("data-k");
+    if(edit){sel=k;draw();return}
+    stop();if(!press(k))return;
+    if(bt.classList.contains("hold"))hold=setInterval(function(){if(!press(k))stop()},170)});
+  ["pointerup","pointercancel","pointerleave"].forEach(function(ev){R.addEventListener(ev,stop)});
+  document.addEventListener("pointerup",stop);
+  R.addEventListener("contextmenu",function(e){e.preventDefault()});
+  R.addEventListener("click",function(e){
+    var t=e.target;
+    if(t.id==="m_es"){var v=($("m_ec").value||"").trim().toUpperCase();
+      if(v!==""&&!/^[0-9A-F]{8}$/.test(v)){say("Escribe 8 dígitos hexadecimales, por ejemplo E0E040BF","err");return}
+      custom[sel]=v;Store.set("mcodes",custom);say("Guardado: "+SAM_NAMES[sel],"ok");draw()}
+    if(t.id==="m_er"){delete custom[sel];Store.set("mcodes",custom);say("Restablecido: "+SAM_NAMES[sel],"ok");draw()}
+    var bt=t.closest&&t.closest("button[data-k]");
+    if(bt&&e.detail===0&&!edit)press(bt.getAttribute("data-k"))});
+  $("m_edit").addEventListener("click",function(){edit=!edit;sel=null;this.textContent=edit?"Terminar edición":"Editar códigos";
+    say(edit?"Modo edición: toca un botón para cambiar su código.":"");draw()});
+  draw()}
+/*MANDO-END*/
+initMando();
+</script></body></html>
