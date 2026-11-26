@@ -3,43 +3,54 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="dark"><title>Mando</title>
 <style>
-:root{--ink:#e8eef4;--mute:#9db0c3;--ok:#6fd49a;--err:#ff8a7a}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:#0b0f14;color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-main{max-width:360px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) 10px max(18px,env(safe-area-inset-bottom))}
-.row{display:flex;gap:10px;margin:0 0 10px}
-.hint{color:var(--mute);font-size:.85rem;margin:6px 0 0}
-.msg{min-height:1.3em;margin:4px 2px 8px;color:var(--mute);font-size:.92rem}.msg.ok{color:var(--ok);font-weight:600}.msg.err{color:var(--err);font-weight:600}
-input{width:100%;font:inherit;border:1.5px solid #ccc;border-radius:10px;padding:0 10px}
-.row>button{flex:1;font:inherit;font-weight:600;min-height:44px;border-radius:12px;border:1.5px solid #2b3d52;background:#16273b;color:var(--ink)}
-.sm{background:linear-gradient(#1b1b1d,#0c0c0d);border:2px solid #000;border-radius:22px 22px 30px 30px;padding:14px 12px 18px;max-width:340px;margin:0 auto 12px;box-shadow:0 4px 14px rgba(0,0,0,.35);color:#eee}
-.sm .g{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:0 0 11px;align-items:center;justify-items:stretch}
-.sm .g.c1{grid-template-columns:1fr}
-.sm button{background:#2a2a2d;border:1px solid #000;color:#f2f2f2;border-radius:9px;min-height:44px;font-size:.78rem;font-weight:700;padding:0 2px;line-height:1.1;box-shadow:0 2px 0 #000;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-.sm button:active{transform:translateY(1px);filter:brightness(1.4)}
-.sm button.num{font-size:1.45rem;min-height:48px}
-.sm button.pw{background:#d0262d;border-radius:50%;width:56px;height:56px;min-height:56px;justify-self:start;font-size:1.4rem;box-shadow:0 2px 0 #600}
-.sm button.rock{background:#9aa5cf;color:#10142a;min-height:122px;font-size:1.5rem;border-radius:8px}
-.sm button.rock small{font-size:.7rem;font-weight:800}
-.sm button.hexb{background:#e8e2bf;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);min-height:60px;border:0;box-shadow:none}
-.sm .cr{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin:0 0 11px}
-.sm .cr button{min-height:52px;font-size:1.25rem}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b0f14;color:#eee;font:16px/1.3 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+main{height:100vh;height:100dvh;max-width:440px;margin:0 auto;display:flex;flex-direction:column;gap:6px;padding:max(6px,env(safe-area-inset-top)) 10px max(8px,env(safe-area-inset-bottom))}
+.top{flex:none;height:34px;display:flex;align-items:center;gap:8px}
+.top #m_msg{flex:1;min-width:0;font-size:.8rem;color:#9db0c3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top #m_msg.ok{color:#6fd49a}.top #m_msg.err{color:#ff8a7a;font-weight:600}
+.top button{flex:none;width:36px;height:34px;border-radius:10px;border:1px solid #2b3d52;background:#16273b;color:#eee;font-size:1.15rem;padding:0}
+#m_remote{flex:1;min-height:0}
+.sm{height:100%;display:flex;flex-direction:column;gap:6px;background:linear-gradient(#1b1b1d,#0c0c0d);border:2px solid #000;border-radius:22px 22px 30px 30px;padding:10px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+.sm .g{flex:var(--f,1);min-height:0;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.sm .g.n{grid-template-rows:repeat(4,1fr)}
+.sm .g.c4{grid-template-columns:repeat(4,1fr)}
+.sm .col{display:grid;grid-template-rows:1fr 1fr;gap:7px;min-height:0}
+.sm button{height:100%;min-height:0;background:#2a2a2d;border:1px solid #000;color:#f2f2f2;border-radius:9px;font:inherit;font-size:clamp(.62rem,1.65dvh,.85rem);font-weight:700;padding:0 2px;line-height:1.1;box-shadow:0 2px 0 #000;touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;display:flex;align-items:center;justify-content:center;text-align:center}
+.sm button:active{transform:translateY(1px);filter:brightness(1.45)}
+.sm button.big{font-size:clamp(1rem,3.1dvh,1.6rem)}
+.sm button.pw{background:#d0262d;border-radius:50%;height:100%;width:auto;aspect-ratio:1;justify-self:start;box-shadow:0 2px 0 #600}
+.sm button.rock{background:#9aa5cf;color:#10142a;border-radius:8px}
+.sm button.hexb{background:#e8e2bf;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);border:0;box-shadow:none}
 .sm button.ca{background:#d0262d}.sm button.cb{background:#1f8f6a}.sm button.cc{background:#e0a920;color:#222}.sm button.cd{background:#2f5fd0}
 .sm button.rec{color:#ff3b3b}
-.sm button.low{font-size:.7rem}
 .sm button.ed{outline:3px solid #f5a623}
-.sm button.nocode{opacity:.55;border-style:dashed}
-.sm .em{background:#fff;color:#111;border-radius:10px;padding:8px;margin:0 0 10px}
-.sm .em input{min-height:40px;color:#111;background:#fff}
-.sm .em button{background:#0b6b8a;color:#fff;min-height:40px;flex-direction:row}
+.sm button.nocode{opacity:.5;border-style:dashed}
+.pan{position:fixed;left:0;right:0;z-index:5;background:#fff;color:#111;padding:12px max(12px,env(safe-area-inset-left));box-shadow:0 0 20px rgba(0,0,0,.6)}
+.pan.top0{top:0;padding-top:max(12px,env(safe-area-inset-top));border-radius:0 0 16px 16px}
+.pan.bot{bottom:0;padding-bottom:max(12px,env(safe-area-inset-bottom));border-radius:16px 16px 0 0}
+.pan b{display:block;margin-bottom:6px}
+.pan p{margin:6px 0;font-size:.88rem;color:#333}
+.pan input{width:100%;min-height:42px;font:inherit;border:1.5px solid #999;border-radius:10px;padding:0 10px;margin:6px 0;color:#111;background:#fff}
+.pan .row{display:flex;gap:8px;margin:8px 0 0}
+.pan .row button{flex:1;min-height:42px;font:inherit;font-weight:600;border-radius:10px;border:1.5px solid #0b6b8a;background:#fff;color:#0b6b8a}
+.pan .row button.main{background:#0b6b8a;color:#fff}
 [hidden]{display:none!important}
 </style></head><body><main>
-<div id="m_st" class="msg"></div>
+<div class="top"><div id="m_msg" role="status" aria-live="polite"></div><button id="m_cfg" type="button" aria-label="Ajustes">⚙</button></div>
 <div id="m_remote"></div>
-<div id="m_msg" class="msg" role="status" aria-live="polite"></div>
-<div class="row"><button id="m_edit" type="button">Editar códigos</button></div>
-<p class="hint">Apunta el borde superior del móvil a la tele. Mantén pulsado Vol, Canal, flechas y ⏪ ⏩ para repetir. Los botones con borde discontinuo no tienen código: usa «Editar códigos» para asignarles uno.</p>
 </main>
+<div id="m_set" class="pan top0" hidden>
+  <b>Ajustes</b>
+  <p>Apunta el borde superior del móvil a la tele. Mantén pulsado Vol, Canal, flechas y ⏪ ⏩ para repetir. Los botones con borde discontinuo no tienen código.</p>
+  <div class="row"><button id="s_edit" class="main" type="button">Editar códigos</button></div>
+  <div class="row"><button id="s_reset" type="button">Restablecer todos</button><button id="s_close" type="button">Cerrar</button></div>
+</div>
+<div id="m_em" class="pan bot" hidden>
+  <b id="m_en"></b>
+  <input id="m_ec" autocapitalize="characters" autocomplete="off" maxlength="8" placeholder="E0E040BF (8 dígitos hex)">
+  <div class="row"><button id="m_es" class="main" type="button">Guardar</button><button id="m_er" type="button">Restablecer</button><button id="m_ex" type="button">Terminar</button></div>
+</div>
 <script>
 var NB=window.Rumbo||null;
 function $(id){return document.getElementById(id)}
@@ -52,7 +63,6 @@ function irSamsung(addr,cmd){
   var bits=irBits(addr&255,8).concat(irBits(addr&255,8),irBits(cmd&255,8),irBits(~cmd&255,8)),p=[4500,4500];
   bits.forEach(function(b){p.push(560,b?1690:560)});p.push(560);return{freq:38000,pattern:p}}
 function rev8(b){var r=0,i;for(i=0;i<8;i++)r|=((b>>i)&1)<<(7-i);return r}
-/*MANDO-START*/
 var SAM_KEYS={
 pwr:"E0E040BF",src:"E0E0807F",hdmi:"E0E0D12E",
 n1:"E0E020DF",n2:"E0E0A05F",n3:"E0E0609F",n4:"E0E010EF",n5:"E0E0906F",n6:"E0E050AF",n7:"E0E030CF",n8:"E0E0B04F",n9:"E0E0708F",n0:"E0E08877",
@@ -69,62 +79,64 @@ for(var i=0;i<10;i++)SAM_NAMES["n"+i]=String(i);
 function samCode(hex){
   var n=parseInt(hex,16);if(!hex||hex.length!==8||isNaN(n))return null;
   return irSamsung(rev8((n>>>24)&255),rev8((n>>>8)&255))}
-function initMando(){
-  var R=$("m_remote"),msg=$("m_msg"),st=$("m_st"),custom=Store.get("mcodes",{}),edit=false,sel=null,hold=null,info={};
-  if(!NB){st.textContent="Este mando necesita la app nativa para usar el emisor infrarrojo.";}
+(function(){
+  var R=$("m_remote"),msg=$("m_msg"),custom=Store.get("mcodes",{}),edit=false,sel=null,hold=null,info={},noIr=false;
+  function say(t,c){msg.textContent=t;msg.className=c||""}
+  if(!NB){noIr=true;say("Necesita la app nativa","err")}
   else{try{info=JSON.parse(NB.irInfo())}catch(e){}
-    if(!info.has){st.textContent="Este móvil no tiene emisor de infrarrojos.";st.className="msg err"}}
-  function say(t,c){msg.textContent=t;msg.className="msg"+(c?" "+c:"")}
+    if(!info.has){noIr=true;say("Este móvil no tiene emisor de infrarrojos","err")}}
   function code(k){return custom[k]!=null&&custom[k]!==""?custom[k]:SAM_KEYS[k]}
   function B(k,lab,cls,hl){var c=code(k);
     return'<button type="button" data-k="'+k+'" class="'+(cls||"")+(hl?" hold":"")+(c?"":" nocode")+(sel===k?" ed":"")+'" aria-label="'+esc(SAM_NAMES[k])+'">'+lab+'</button>'}
-  function N(d){return B("n"+d,d,"num")}
+  function N(d){return B("n"+d,d,"big")}
+  function S(){return"<span></span>"}
   function draw(){
     R.innerHTML='<div class="sm">'
-    +'<div class="g">'+B("pwr","⏻","pw")+'<span></span>'+B("src","SOURCE")+'</div>'
-    +'<div class="g"><span></span>'+B("hdmi","HDMI")+'<span></span></div>'
-    +'<div class="g">'+N(1)+N(2)+N(3)+N(4)+N(5)+N(6)+N(7)+N(8)+N(9)+B("ttx","TTX/MIX","low")+N(0)+B("prech","PRE-CH","low")+'</div>'
-    +'<div class="g">'+'<div style="display:grid;gap:6px">'+B("vup","+","rock",1)+B("vdn","−","rock",1)+'</div>'
-      +'<div style="display:grid;gap:9px">'+B("mute","MUTE")+B("chlist","CH LIST","low")+'</div>'
-      +'<div style="display:grid;gap:6px">'+B("cup","⌃","rock",1)+B("cdn","⌄","rock",1)+'</div></div>'
+    +'<div class="g" style="--f:1.25">'+B("pwr","⏻","pw big")+S()+B("src","SOURCE")+'</div>'
+    +'<div class="g" style="--f:.8">'+S()+B("hdmi","HDMI")+S()+'</div>'
+    +'<div class="g n" style="--f:4.2">'+N(1)+N(2)+N(3)+N(4)+N(5)+N(6)+N(7)+N(8)+N(9)+B("ttx","TTX/MIX")+N(0)+B("prech","PRE-CH")+'</div>'
+    +'<div class="g" style="--f:3.2"><div class="col">'+B("vup","+","rock big",1)+B("vdn","−","rock big",1)+'</div>'
+      +'<div class="col">'+B("mute","MUTE")+B("chlist","CH LIST")+'</div>'
+      +'<div class="col">'+B("cup","⌃","rock big",1)+B("cdn","⌄","rock big",1)+'</div></div>'
     +'<div class="g">'+B("menu","MENU")+B("hub","","hexb")+B("guide","GUIDE")+'</div>'
-    +'<div class="g">'+B("tools","TOOLS")+B("up","▲","num",1)+B("info","INFO")+'</div>'
-    +'<div class="g">'+B("lf","◀","num",1)+B("ok","⏎","num")+B("rt","▶","num",1)+'</div>'
-    +'<div class="g">'+B("ret","RETURN")+B("dn","▼","num",1)+B("exit","EXIT")+'</div>'
-    +'<div class="g" style="grid-template-columns:repeat(4,1fr)">'+B("a","A","ca")+B("b","B","cb")+B("c","C","cc")+B("d","D","cd")+'</div>'
-    +'<div class="g">'+B("fam","Family Story","low")+B("search","SEARCH","low")+B("dual","DUAL I-II","low")+'</div>'
-    +'<div class="g">'+B("supp","SUPPORT","low")+B("psize","P.SIZE","low")+B("subt","AD/SUBT.","low")+'</div>'
-    +'<div class="g">'+B("rew","⏪","",1)+B("pause","⏸")+B("ff","⏩","",1)+'</div>'
-    +'<div class="g">'+B("rec","●","rec")+B("play","▶")+B("stop","■")+'</div>'
-    +'<div class="em" id="m_em" '+(edit&&sel?"":"hidden")+'><b id="m_en"></b><input id="m_ec" autocapitalize="characters" maxlength="8" placeholder="E0E040BF (8 hex)" style="margin:6px 0">'
-    +'<div class="row" style="margin:0"><button id="m_es" type="button">Guardar</button><button id="m_er" type="button">Restablecer</button></div></div>'
+    +'<div class="g">'+B("tools","TOOLS")+B("up","▲","big",1)+B("info","INFO")+'</div>'
+    +'<div class="g">'+B("lf","◀","big",1)+B("ok","⏎","big")+B("rt","▶","big",1)+'</div>'
+    +'<div class="g">'+B("ret","RETURN")+B("dn","▼","big",1)+B("exit","EXIT")+'</div>'
+    +'<div class="g c4" style="--f:.85">'+B("a","A","ca")+B("b","B","cb")+B("c","C","cc")+B("d","D","cd")+'</div>'
+    +'<div class="g" style="--f:.85">'+B("fam","Family Story")+B("search","SEARCH")+B("dual","DUAL I-II")+'</div>'
+    +'<div class="g" style="--f:.85">'+B("supp","SUPPORT")+B("psize","P.SIZE")+B("subt","AD/SUBT.")+'</div>'
+    +'<div class="g" style="--f:.85">'+B("rew","⏪","",1)+B("pause","⏸")+B("ff","⏩","",1)+'</div>'
+    +'<div class="g" style="--f:.85">'+B("rec","●","rec")+B("play","▶")+B("stop","■")+'</div>'
     +'</div>';
-    if(edit&&sel){$("m_en").textContent=SAM_NAMES[sel];$("m_ec").value=code(sel)||""}}
-  function press(k){var c=code(k);if(!c){say("«"+SAM_NAMES[k]+"» no tiene código. Pulsa «Editar códigos» para asignarlo.","err");return false}
-    var r=samCode(c);if(!r){say("Código no válido para "+SAM_NAMES[k],"err");return false}
-    if(!NB){say("Solo funciona en la app nativa","err");return false}
+    $("m_em").hidden=!(edit&&sel);
+    if(edit&&sel){$("m_en").textContent=SAM_NAMES[sel];if(document.activeElement!==$("m_ec"))$("m_ec").value=code(sel)||""}}
+  function press(k){var c=code(k);
+    if(!c){say("«"+SAM_NAMES[k]+"» no tiene código (Ajustes › Editar)","err");return false}
+    var r=samCode(c);if(!r){say("Código no válido: "+SAM_NAMES[k],"err");return false}
+    if(!NB||noIr)return false;
     var res=NB.irSend(r.freq,r.pattern.join(","));
-    if(res!=="ok"){say(res==="no"?"Este móvil no tiene emisor IR":res==="freq"?"Frecuencia fuera del rango del emisor":"El emisor rechazó la señal ("+res+")","err");return false}
-    say("");if(navigator.vibrate)navigator.vibrate(12);return true}
+    if(res!=="ok"){say(res==="no"?"Sin emisor IR":res==="freq"?"Frecuencia fuera de rango":"El emisor rechazó la señal ("+res+")","err");return false}
+    say(SAM_NAMES[k]);if(navigator.vibrate)navigator.vibrate(12);return true}
   function stop(){if(hold){clearInterval(hold);hold=null}}
   R.addEventListener("pointerdown",function(e){var bt=e.target.closest("button[data-k]");if(!bt)return;var k=bt.getAttribute("data-k");
-    if(edit){sel=k;draw();return}
+    if(edit){sel=k;$("m_ec").value="";draw();return}
     stop();if(!press(k))return;
     if(bt.classList.contains("hold"))hold=setInterval(function(){if(!press(k))stop()},170)});
   ["pointerup","pointercancel","pointerleave"].forEach(function(ev){R.addEventListener(ev,stop)});
   document.addEventListener("pointerup",stop);
   R.addEventListener("contextmenu",function(e){e.preventDefault()});
-  R.addEventListener("click",function(e){
-    var t=e.target;
-    if(t.id==="m_es"){var v=($("m_ec").value||"").trim().toUpperCase();
-      if(v!==""&&!/^[0-9A-F]{8}$/.test(v)){say("Escribe 8 dígitos hexadecimales, por ejemplo E0E040BF","err");return}
-      custom[sel]=v;Store.set("mcodes",custom);say("Guardado: "+SAM_NAMES[sel],"ok");draw()}
-    if(t.id==="m_er"){delete custom[sel];Store.set("mcodes",custom);say("Restablecido: "+SAM_NAMES[sel],"ok");draw()}
-    var bt=t.closest&&t.closest("button[data-k]");
+  R.addEventListener("click",function(e){var bt=e.target.closest("button[data-k]");
     if(bt&&e.detail===0&&!edit)press(bt.getAttribute("data-k"))});
-  $("m_edit").addEventListener("click",function(){edit=!edit;sel=null;this.textContent=edit?"Terminar edición":"Editar códigos";
-    say(edit?"Modo edición: toca un botón para cambiar su código.":"");draw()});
-  draw()}
-/*MANDO-END*/
-initMando();
+  function endEdit(){edit=false;sel=null;say("");draw()}
+  $("m_cfg").addEventListener("click",function(){$("m_set").hidden=!$("m_set").hidden});
+  $("s_close").addEventListener("click",function(){$("m_set").hidden=true});
+  $("s_edit").addEventListener("click",function(){$("m_set").hidden=true;edit=true;sel=null;say("Edición: toca un botón","ok");draw()});
+  $("s_reset").addEventListener("click",function(){custom={};Store.set("mcodes",custom);$("m_set").hidden=true;say("Códigos restablecidos","ok");draw()});
+  $("m_es").addEventListener("click",function(){var v=($("m_ec").value||"").trim().toUpperCase();
+    if(v!==""&&!/^[0-9A-F]{8}$/.test(v)){say("Escribe 8 dígitos hex, p. ej. E0E040BF","err");return}
+    custom[sel]=v;Store.set("mcodes",custom);say("Guardado: "+SAM_NAMES[sel],"ok");sel=null;draw()});
+  $("m_er").addEventListener("click",function(){delete custom[sel];Store.set("mcodes",custom);say("Restablecido: "+SAM_NAMES[sel],"ok");sel=null;draw()});
+  $("m_ex").addEventListener("click",endEdit);
+  draw();
+})();
 </script></body></html>
