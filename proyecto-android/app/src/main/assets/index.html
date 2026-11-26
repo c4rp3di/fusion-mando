@@ -35,9 +35,13 @@ main{height:100vh;height:100dvh;max-width:440px;margin:0 auto;display:flex;flex-
 .pan .row{display:flex;gap:8px;margin:8px 0 0}
 .pan .row button{flex:1;min-height:42px;font:inherit;font-weight:600;border-radius:10px;border:1.5px solid #0b6b8a;background:#fff;color:#0b6b8a}
 .pan .row button.main{background:#0b6b8a;color:#fff}
+.top button.ok2{background:#1f8f6a;border-color:#1f8f6a}.top button.no2{background:#c0392b;border-color:#c0392b}
+.mlist{max-height:40dvh;overflow-y:auto;margin:0 0 6px}
+.pan .row button.del{flex:none;width:46px;color:#c0392b;border-color:#c0392b}
+.pan .row button.del.sure{background:#c0392b;color:#fff;width:auto;padding:0 10px}
 [hidden]{display:none!important}
 </style></head><body><main>
-<div class="top"><div id="m_msg" role="status" aria-live="polite"></div><button id="m_cfg" type="button" aria-label="Ajustes">⚙</button></div>
+<div class="top"><div id="m_msg" role="status" aria-live="polite"></div><button id="m_rs" class="ok2" type="button" aria-label="Guardar macro" hidden>✓</button><button id="m_rc" class="no2" type="button" aria-label="Cancelar" hidden>✕</button><button id="m_mb" type="button" aria-label="Macros">⚡</button><button id="m_cfg" type="button" aria-label="Ajustes">⚙</button></div>
 <div id="m_remote"></div>
 </main>
 <div id="m_set" class="pan top0" hidden>
@@ -45,6 +49,13 @@ main{height:100vh;height:100dvh;max-width:440px;margin:0 auto;display:flex;flex-
   <p>Apunta el borde superior del móvil a la tele. Mantén pulsado Vol, Canal, flechas y ⏪ ⏩ para repetir. Los botones con borde discontinuo no tienen código.</p>
   <div class="row"><button id="s_edit" class="main" type="button">Editar códigos</button></div>
   <div class="row"><button id="s_reset" type="button">Restablecer todos</button><button id="s_close" type="button">Cerrar</button></div>
+</div>
+<div id="m_mac" class="pan top0" hidden>
+  <b>Macros</b>
+  <div id="m_list" class="mlist"></div>
+  <p>Para crear una: escribe un nombre, pulsa «Grabar» y pulsa los botones del mando en orden (se guardan también tus pausas). Al terminar, pulsa ✓ arriba.</p>
+  <input id="m_nm" maxlength="20" autocomplete="off" placeholder="Nombre (p. ej. Subtítulos)">
+  <div class="row"><button id="m_new" class="main" type="button">Grabar nueva macro</button><button id="m_mx" type="button">Cerrar</button></div>
 </div>
 <div id="m_em" class="pan bot" hidden>
   <b id="m_en"></b>
@@ -80,7 +91,7 @@ function samCode(hex){
   var n=parseInt(hex,16);if(!hex||hex.length!==8||isNaN(n))return null;
   return irSamsung(rev8((n>>>24)&255),rev8((n>>>8)&255))}
 (function(){
-  var R=$("m_remote"),msg=$("m_msg"),custom=Store.get("mcodes",{}),edit=false,sel=null,hold=null,info={},noIr=false;
+  var R=$("m_remote"),msg=$("m_msg"),custom=Store.get("mcodes",{}),edit=false,sel=null,hold=null,info={},noIr=false,macros=Store.get("macros",[]),rec=false,recSteps=[],recName="",lastT=0,running=false,runT=null;
   function say(t,c){msg.textContent=t;msg.className=c||""}
   if(!NB){noIr=true;say("Necesita la app nativa","err")}
   else{try{info=JSON.parse(NB.irInfo())}catch(e){}
@@ -119,14 +130,16 @@ function samCode(hex){
     say(SAM_NAMES[k]);if(navigator.vibrate)navigator.vibrate(12);return true}
   function stop(){if(hold){clearInterval(hold);hold=null}}
   R.addEventListener("pointerdown",function(e){var bt=e.target.closest("button[data-k]");if(!bt)return;var k=bt.getAttribute("data-k");
+    if(running)return;
     if(edit){sel=k;$("m_ec").value="";draw();return}
     stop();if(!press(k))return;
+    if(rec)recStep(k);
     if(bt.classList.contains("hold"))hold=setInterval(function(){if(!press(k))stop()},170)});
   ["pointerup","pointercancel","pointerleave"].forEach(function(ev){R.addEventListener(ev,stop)});
   document.addEventListener("pointerup",stop);
   R.addEventListener("contextmenu",function(e){e.preventDefault()});
   R.addEventListener("click",function(e){var bt=e.target.closest("button[data-k]");
-    if(bt&&e.detail===0&&!edit)press(bt.getAttribute("data-k"))});
+    if(bt&&e.detail===0&&!edit&&!running){var kk=bt.getAttribute("data-k");if(press(kk)&&rec)recStep(kk)}});
   function endEdit(){edit=false;sel=null;say("");draw()}
   $("m_cfg").addEventListener("click",function(){$("m_set").hidden=!$("m_set").hidden});
   $("s_close").addEventListener("click",function(){$("m_set").hidden=true});
@@ -137,6 +150,37 @@ function samCode(hex){
     custom[sel]=v;Store.set("mcodes",custom);say("Guardado: "+SAM_NAMES[sel],"ok");sel=null;draw()});
   $("m_er").addEventListener("click",function(){delete custom[sel];Store.set("mcodes",custom);say("Restablecido: "+SAM_NAMES[sel],"ok");sel=null;draw()});
   $("m_ex").addEventListener("click",endEdit);
+  /* ---- macros ---- */
+  function ui(){var busy=rec||running;$("m_mb").hidden=busy;$("m_cfg").hidden=busy;$("m_rc").hidden=!busy;$("m_rs").hidden=!rec}
+  function recStep(k){var now=Date.now(),d=recSteps.length?Math.max(250,Math.min(4000,now-lastT)):0;lastT=now;
+    recSteps.push({k:k,d:d});say("● Grabando: "+recSteps.length+(recSteps.length===1?" paso":" pasos"),"ok")}
+  function renderMac(){var l=$("m_list");
+    l.innerHTML=macros.length?macros.map(function(m){return'<div class="row"><button class="main" type="button" data-run="'+m.id+'">'+esc(m.name)+' · '+m.steps.length+(m.steps.length===1?" paso":" pasos")+'</button><button class="del" type="button" data-del="'+m.id+'" aria-label="Borrar">✕</button></div>'}).join(""):'<p>Aún no tienes macros.</p>'}
+  function run(m){if(running||!m.steps.length)return;running=true;var i=0;ui();
+    (function next(){if(!running)return;
+      if(i>=m.steps.length){running=false;ui();say("Listo: "+m.name,"ok");return}
+      var st=m.steps[i];
+      runT=setTimeout(function(){if(!running)return;var ok=press(st.k);
+        if(!ok){running=false;ui();return}
+        say("▶ "+m.name+" "+(i+1)+"/"+m.steps.length);i++;next()},i===0?0:st.d)})()}
+  $("m_mb").addEventListener("click",function(){$("m_set").hidden=true;renderMac();$("m_mac").hidden=false});
+  $("m_mx").addEventListener("click",function(){$("m_mac").hidden=true});
+  $("m_cfg").addEventListener("click",function(){$("m_mac").hidden=true});
+  $("m_list").addEventListener("click",function(e){var t=e.target.closest("button");if(!t)return;
+    var id=t.getAttribute("data-run"),dl=t.getAttribute("data-del");
+    if(id){var m=macros.filter(function(x){return String(x.id)===id})[0];if(m){$("m_mac").hidden=true;run(m)}}
+    if(dl){if(!t.classList.contains("sure")){t.classList.add("sure");t.textContent="¿Borrar?";return}
+      macros=macros.filter(function(x){return String(x.id)!==dl});Store.set("macros",macros);renderMac()}});
+  $("m_new").addEventListener("click",function(){recName=($("m_nm").value||"").trim()||("Macro "+(macros.length+1));$("m_nm").value="";
+    $("m_mac").hidden=true;rec=true;recSteps=[];lastT=0;ui();say("● Grabando: pulsa los botones","ok")});
+  $("m_rs").addEventListener("click",function(){
+    if(recSteps.length){macros.push({id:Date.now(),name:recName,steps:recSteps});Store.set("macros",macros);say("Macro guardada: "+recName,"ok")}
+    else say("Macro vacía: no se ha guardado","err");
+    rec=false;recSteps=[];ui()});
+  $("m_rc").addEventListener("click",function(){
+    if(running){running=false;clearTimeout(runT);say("Macro detenida")}
+    else if(rec){rec=false;recSteps=[];say("Grabación cancelada")}
+    ui()});
   draw();
 })();
 </script></body></html>
