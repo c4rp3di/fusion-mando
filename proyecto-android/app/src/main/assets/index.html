@@ -83,6 +83,7 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
   <label id="l_dms">Pausa entre pasos <span id="v_dms"></span><input type="range" data-s="dms" min="30" max="1500" step="10"></label>
   <p id="p_dms">Si la tele se salta pasos, sube la pausa. Muchas teles no admiten menos de 150-200 ms.</p>
   <div class="sec">Botones</div>
+  <button id="s_proto" class="tg" type="button"></button>
   <div class="row"><button id="s_edit" class="main" type="button">Editar botones, posición, formas y colores</button></div>
   <div class="row"><button id="s_rl" type="button">Restablecer diseño</button><button id="s_rc" type="button">Restablecer códigos</button></div>
   <p>Apunta el borde superior del móvil a la tele. Mantén pulsado Vol, Canal, flechas y ⏪ ⏩ para repetir.</p>
@@ -102,6 +103,7 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
   <div id="p_list" class="mlist"></div>
   <label>Nombre</label><input id="p_nm" maxlength="20" autocomplete="off" placeholder="Nombre del mando">
   <div class="row"><button id="p_new" class="main" type="button">Guardar copia del actual</button></div>
+  <div class="row"><button id="p_and" type="button">Nuevo: Android TV (TransSpeed)</button></div>
   <div class="row"><button id="p_ren" type="button">Renombrar el actual</button><button id="p_x" type="button">Cerrar</button></div>
   <p>Los cambios se guardan en el mando activo. Para probar sin perder el actual, guarda primero una copia y edita esa. Las macros son comunes a todos los mandos.</p>
 </div>
@@ -147,6 +149,9 @@ function irBits(v,n){var b=[],i;for(i=0;i<n;i++)b.push((v>>i)&1);return b}
 function irSamsung(addr,cmd){
   var bits=irBits(addr&255,8).concat(irBits(addr&255,8),irBits(cmd&255,8),irBits(~cmd&255,8)),p=[4500,4500];
   bits.forEach(function(b){p.push(560,b?1690:560)});p.push(560);return{freq:38000,pattern:p}}
+function irNec(b0,b1,cmd){
+  var bits=irBits(b0&255,8).concat(irBits(b1&255,8),irBits(cmd&255,8),irBits(~cmd&255,8)),p=[9000,4500];
+  bits.forEach(function(b){p.push(560,b?1690:560)});p.push(560);return{freq:38000,pattern:p}}
 function rev8(b){var r=0,i;for(i=0;i<8;i++)r|=((b>>i)&1)<<(7-i);return r}
 var SAM_KEYS={
 pwr:"E0E040BF",src:"E0E0807F",hdmi:"E0E0D12E",
@@ -158,20 +163,26 @@ up:"E0E006F9",dn:"E0E08679",lf:"E0E0A659",rt:"E0E046B9",ok:"E0E016E9",ret:"E0E01
 a:"E0E036C9",b:"E0E028D7",c:"E0E0A857",d:"E0E06897",
 fam:"",search:"",dual:"E0E000FF",
 supp:"E0E0FC03",psize:"E0E07C83",subt:"E0E0A45B",
-rew:"E0E0A25D",pause:"E0E052AD",ff:"E0E012ED",rec:"E0E0926D",play:"E0E0E21D",stop:"E0E0629D"};
-var SAM_NAMES={pwr:"Encender/apagar",src:"Source",hdmi:"HDMI",ttx:"TTX/MIX",prech:"PRE-CH",vup:"Vol +",vdn:"Vol −",mute:"Mute",cup:"Canal +",cdn:"Canal −",chlist:"CH LIST",menu:"Menu",hub:"Smart Hub",guide:"Guide",tools:"Tools",info:"Info",up:"Arriba",dn:"Abajo",lf:"Izquierda",rt:"Derecha",ok:"OK",ret:"Return",exit:"Exit",a:"A",b:"B",c:"C",d:"D",fam:"Family Story",search:"Search",dual:"Dual I-II",supp:"Support",psize:"P.SIZE",subt:"AD/SUBT.",rew:"Rebobinar",pause:"Pausa",ff:"Avance",rec:"Grabar",play:"Play",stop:"Stop"};
+rew:"E0E0A25D",pause:"E0E052AD",ff:"E0E012ED",rec:"E0E0926D",play:"E0E0E21D",stop:"E0E0629D",mouse:""};
+var SAM_NAMES={pwr:"Encender/apagar",src:"Source",hdmi:"HDMI",ttx:"TTX/MIX",prech:"PRE-CH",vup:"Vol +",vdn:"Vol −",mute:"Mute",cup:"Canal +",cdn:"Canal −",chlist:"CH LIST",menu:"Menu",hub:"Smart Hub",guide:"Guide",tools:"Tools",info:"Info",up:"Arriba",dn:"Abajo",lf:"Izquierda",rt:"Derecha",ok:"OK",ret:"Return",exit:"Exit",a:"A",b:"B",c:"C",d:"D",fam:"Family Story",search:"Search",dual:"Dual I-II",supp:"Support",psize:"P.SIZE",subt:"AD/SUBT.",mouse:"Ratón",rew:"Rebobinar",pause:"Pausa",ff:"Avance",rec:"Grabar",play:"Play",stop:"Stop"};
 
 for(var i=0;i<10;i++)SAM_NAMES["n"+i]=String(i);
-function samCode(hex){
+function samCode(hex,proto){
   var n=parseInt(hex,16);if(!hex||hex.length!==8||isNaN(n))return null;
-  return irSamsung(rev8((n>>>24)&255),rev8((n>>>8)&255))}
+  var b0=rev8((n>>>24)&255),b1=rev8((n>>>16)&255),c=rev8((n>>>8)&255);
+  return proto==="nec"?irNec(b0,b1,c):irSamsung(b0,c)}
+function necHex(a0,a1,c){return[a0,a1,c,(~c)&255].map(function(x){var h=rev8(x).toString(16).toUpperCase();return h.length<2?"0"+h:h}).join("")}
+/* Cajas Android (Allwinner/Transpeed...): NEC extendido, dirección 0x02 0xFE */
+var NEC_CMD={pwr:0x40,vup:0x18,vdn:0x10,ret:0x19,up:0x16,lf:0x51,rt:0x50,dn:0x1A,hub:0x11,menu:0x43,ok:0x13,mute:0xF3,
+  n0:0x01,n1:0x4E,n2:0x0D,n3:0x0C,n4:0x4A,n5:0x09,n6:0x08,n7:0x46,n8:0x05,n9:0x04,rew:0x4B,ff:0x4F,guide:0x00};
+var NEC_KEYS={};Object.keys(NEC_CMD).forEach(function(k){NEC_KEYS[k]=necHex(0x02,0xFE,NEC_CMD[k])});
 
-var LAB={pwr:"⏻",src:"SOURCE",hdmi:"HDMI",ttx:"TTX/MIX",prech:"PRE-CH",vup:"+",vdn:"−",mute:"MUTE",cup:"⌃",cdn:"⌄",chlist:"CH LIST",menu:"MENU",hub:"",guide:"GUIDE",tools:"TOOLS",info:"INFO",up:"▲",dn:"▼",lf:"◀",rt:"▶",ok:"⏎",ret:"RETURN",exit:"EXIT",a:"A",b:"B",c:"C",d:"D",fam:"Family Story",search:"SEARCH",dual:"DUAL I-II",supp:"SUPPORT",psize:"P.SIZE",subt:"AD/SUBT.",rew:"⏪",pause:"⏸",ff:"⏩",rec:"●",play:"▶",stop:"■"};
+var LAB={pwr:"⏻",src:"SOURCE",hdmi:"HDMI",ttx:"TTX/MIX",prech:"PRE-CH",vup:"+",vdn:"−",mute:"MUTE",cup:"⌃",cdn:"⌄",chlist:"CH LIST",menu:"MENU",hub:"",guide:"GUIDE",tools:"TOOLS",info:"INFO",up:"▲",dn:"▼",lf:"◀",rt:"▶",ok:"⏎",ret:"RETURN",exit:"EXIT",a:"A",b:"B",c:"C",d:"D",fam:"Family Story",search:"SEARCH",dual:"DUAL I-II",supp:"SUPPORT",psize:"P.SIZE",subt:"AD/SUBT.",rew:"⏪",pause:"⏸",ff:"⏩",rec:"●",play:"▶",stop:"■",mouse:"Ratón"};
 for(var i2=0;i2<10;i2++)LAB["n"+i2]=String(i2);
 var HOLD={vup:1,vdn:1,cup:1,cdn:1,up:1,dn:1,lf:1,rt:1,rew:1,ff:1};
 var COLORS=["#2a2a2d","#000000","#555555","#9aa5cf","#d0262d","#e0a920","#1f8f6a","#2f5fd0","#6b4fbb","#e8e2bf","#ffffff","#0b6b8a","#e07b20","#c2549c","#f2f2f2","#10142a"];
 var SHAPES=[["rd","Redondeado"],["sq","Cuadrado"],["pill","Píldora"],["ov","Óvalo"],["ci","Círculo"],["hex","Hexágono"],["dia","Rombo"]];
-var DEFCFG={scroll:false,rowH:26,w:100,h:100,gap:6,fs:100,bg:"#0c0c0d",dfix:false,dms:300};
+var DEFCFG={scroll:false,rowH:26,w:100,h:100,gap:6,fs:100,bg:"#0c0c0d",dfix:false,dms:300,proto:"samsung"};
 
 function defLayout(){
   var L=[],n=0;
@@ -191,6 +202,17 @@ function defLayout(){
   a("supp",1,31,4,2);a("psize",5,31,4,2);a("subt",9,31,4,2);
   a("rew",1,33,4,2);a("pause",5,33,4,2);a("ff",9,33,4,2);
   a("rec",1,35,4,2,{fg:"#ff3b3b"});a("play",5,35,4,2);a("stop",9,35,4,2);
+  return L}
+
+function androidLayout(){
+  var L=[],n=0;
+  function a(k,c,y,w,h,o){o=o||{};L.push({i:"a"+(n++),t:"k",r:k,l:o.l||"",c:c,y:y,w:w,h:h,sh:o.sh||"ci",bg:o.bg||"#2a2a2d",fg:o.fg||"#f2f2f2",fs:o.fs||100})}
+  a("pwr",1,1,3,3,{bg:"#e8828a",fg:"#fff",fs:140});
+  a("menu",2,4,3,3,{l:"☰",fs:150});a("hub",8,4,3,3,{l:"⌂",fs:160});
+  a("up",5,8,4,3,{l:"▲",fs:120});a("lf",2,11,3,3,{l:"◀",fs:120});a("ok",5,11,4,3,{l:"OK",fs:90});a("rt",8,11,3,3,{l:"▶",fs:120});a("dn",5,14,4,3,{l:"▼",fs:120});
+  a("ret",2,18,10,3,{sh:"pill",l:"↩",fs:170});
+  a("vdn",2,22,3,3,{l:"VOL−"});a("vup",8,22,3,3,{l:"VOL+"});
+  a("mouse",5,26,4,3,{l:"Ratón"});
   return L}
 
 (function(){
@@ -216,7 +238,8 @@ function defLayout(){
   if(!NB){noIr=true;say("Necesita la app nativa","err")}
   else{try{info=JSON.parse(NB.irInfo())}catch(e){}
     if(!info.has){noIr=true;say("Este móvil no tiene emisor de infrarrojos","err")}}
-  function code(k){return custom[k]!=null&&custom[k]!==""?custom[k]:SAM_KEYS[k]}
+  function defCode(k){return(cfg.proto==="nec"?NEC_KEYS:SAM_KEYS)[k]}
+  function code(k){return custom[k]!=null&&custom[k]!==""?custom[k]:defCode(k)}
   function byId(id){for(var i=0;i<layout.length;i++)if(layout[i].i===id)return layout[i];return null}
   function macroById(id){for(var i=0;i<macros.length;i++)if(String(macros[i].id)===String(id))return macros[i];return null}
   function cur(){return sel?byId(sel):null}
@@ -240,7 +263,7 @@ function defLayout(){
       var avail=cw*it.w-gap-6,fp,side=0;
       if(it.sh==="ci"){side=Math.max(8,Math.min(cw*it.w,u*it.h)-gap);avail=side-6}
       var hh=(it.sh==="ci"?side:u*it.h);
-      fp=Math.min(avail/(L*0.62),hh*0.45,L<=2?30:15)*(it.fs/100)*(cfg.fs/100);fp=Math.max(7,fp);
+      fp=Math.min(avail/(L*0.62),hh*0.45,L<=2?30:15)*(it.fs/100)*(cfg.fs/100);fp=Math.max(7,Math.min(fp,avail/(L*0.8),hh*0.9));
       var st="grid-column:"+it.c+"/span "+it.w+";grid-row:"+it.y+"/span "+it.h+";background:"+it.bg+";color:"+it.fg+";font-size:"+fp.toFixed(1)+"px;";
       if(it.sh==="ci")st+="width:"+side+"px;height:"+side+"px;place-self:center;margin:0;";
       else st+="margin:"+(gap/2)+"px;";
@@ -250,7 +273,7 @@ function defLayout(){
   /* ---------- envío ---------- */
   function press(k){var c=code(k);
     if(!c){say("«"+SAM_NAMES[k]+"» no tiene código (Ajustes › Editar botones)","err");return false}
-    var r=samCode(c);if(!r){say("Código no válido: "+SAM_NAMES[k],"err");return false}
+    var r=samCode(c,cfg.proto);if(!r){say("Código no válido: "+SAM_NAMES[k],"err");return false}
     if(!NB||noIr)return false;
     var res=NB.irSend(r.freq,r.pattern.join(","));
     if(res!=="ok"){say(res==="no"?"Sin emisor IR":res==="freq"?"Frecuencia fuera de rango":"El emisor rechazó la señal ("+res+")","err");return false}
@@ -314,11 +337,13 @@ function defLayout(){
       $("v_"+k).textContent=cfg[k]+(k==="w"||k==="h"||k==="fs"?" %":k==="dms"?" ms":" px")});
     $("s_dmode").textContent="Macros: "+(cfg.dfix?"pausa fija":"usar las pausas grabadas")+"  ⇄";
     $("l_dms").hidden=!cfg.dfix;$("p_dms").hidden=!cfg.dfix;
+    $("s_proto").textContent="Protocolo IR: "+(cfg.proto==="nec"?"NEC (cajas Android)":"Samsung (TV)")+"  ⇄";
     markSw($("s_bg"),cfg.bg)}
   mkSw($("s_bg"),function(c){cfg.bg=c;saveC();syncSet();draw()});
   $("m_cfg").addEventListener("click",function(){closePanels();syncSet();$("m_set").hidden=false});
   $("s_close").addEventListener("click",function(){$("m_set").hidden=true});
   $("s_scroll").addEventListener("click",function(){cfg.scroll=!cfg.scroll;W.scrollTop=0;saveC();syncSet();draw()});
+  $("s_proto").addEventListener("click",function(){cfg.proto=cfg.proto==="nec"?"samsung":"nec";saveC();syncSet();draw();say("Protocolo: "+(cfg.proto==="nec"?"NEC":"Samsung"),"ok")});
   $("s_dmode").addEventListener("click",function(){cfg.dfix=!cfg.dfix;saveC();syncSet()});
   Array.prototype.forEach.call(document.querySelectorAll("[data-s]"),function(inp){
     inp.addEventListener("input",function(){var k=inp.getAttribute("data-s");cfg[k]=+inp.value;$("v_"+k).textContent=inp.value+(k==="w"||k==="h"||k==="fs"?" %":k==="dms"?" ms":" px");saveC();if(k!=="dms")draw()})});
@@ -354,7 +379,7 @@ function defLayout(){
     saveL();fillSheet();draw();placeSheet()});
   $("e_l").addEventListener("input",function(){var it=cur();if(it){it.l=this.value;saveL();draw()}});
   $("e_cd").addEventListener("input",function(){var it=cur();if(!it||it.t!=="k")return;var v=this.value.trim().toUpperCase();
-    if(v===""||/^[0-9A-F]{8}$/.test(v)){this.className="";if(v===""||v===SAM_KEYS[it.r])delete custom[it.r];else custom[it.r]=v;persist();draw()}
+    if(v===""||/^[0-9A-F]{8}$/.test(v)){this.className="";if(v===""||v===defCode(it.r))delete custom[it.r];else custom[it.r]=v;persist();draw()}
     else this.className="bad"});
   shSel.addEventListener("change",function(){var it=cur();if(it){it.sh=this.value;saveL();draw()}});
   $("e_fs").addEventListener("input",function(){var it=cur();if(it){it.fs=+this.value;$("e_fv").textContent=this.value+" %";saveL();draw()}});
@@ -426,6 +451,11 @@ function defLayout(){
     var nm=($("p_nm").value||"").trim()||("Mando "+(profiles.length+1));persist();
     var n={id:"p"+Date.now().toString(36),name:nm,layout:clone(layout),cfg:clone(cfg),codes:clone(custom)};
     profiles.push(n);Store.set("profiles",profiles);loadProf(n);$("m_prof").hidden=true;say("Copia guardada y activa: "+nm,"ok")});
+  $("p_and").addEventListener("click",function(){persist();
+    var c2=clone(DEFCFG);c2.proto="nec";c2.w=80;
+    var n={id:"p"+Date.now().toString(36),name:"Android TV",layout:androidLayout(),cfg:c2,codes:{}};
+    profiles.push(n);Store.set("profiles",profiles);loadProf(n);$("m_prof").hidden=true;
+    say("Mando Android TV creado. Prueba encender y volumen; si falla, edita los códigos","ok")});
   $("p_ren").addEventListener("click",function(){var nm=($("p_nm").value||"").trim();if(!nm){say("Escribe el nuevo nombre","err");return}
     prof.name=nm;persist();updPf();renderProf();$("p_nm").value="";say("Renombrado","ok")});
 
