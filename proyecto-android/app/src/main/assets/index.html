@@ -84,6 +84,7 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
   <p id="p_dms">Si la tele se salta pasos, sube la pausa. Muchas teles no admiten menos de 150-200 ms.</p>
   <div class="sec">Botones</div>
   <button id="s_proto" class="tg" type="button"></button>
+  <div class="row"><button id="s_scan" type="button">Buscar códigos IR (cajas Android)…</button></div>
   <div class="row"><button id="s_edit" class="main" type="button">Editar botones, posición, formas y colores</button></div>
   <div class="row"><button id="s_rl" type="button">Restablecer diseño</button><button id="s_rc" type="button">Restablecer códigos</button></div>
   <p>Apunta el borde superior del móvil a la tele. Mantén pulsado Vol, Canal, flechas y ⏪ ⏩ para repetir.</p>
@@ -106,6 +107,29 @@ main{height:100vh;height:100dvh;display:flex;flex-direction:column;gap:6px;paddi
   <div class="row"><button id="p_and" type="button">Nuevo: Android TV (TransSpeed)</button></div>
   <div class="row"><button id="p_ren" type="button">Renombrar el actual</button><button id="p_x" type="button">Cerrar</button></div>
   <p>Los cambios se guardan en el mando activo. Para probar sin perder el actual, guarda primero una copia y edita esa. Las macros son comunes a todos los mandos.</p>
+</div>
+
+<div id="m_scan" class="pan top0 scr" hidden>
+  <b>Buscar códigos IR (NEC)</b>
+  <p>Apunta el móvil al receptor de la caja y mira la pantalla. Se prueban los comandos 0 a 255 uno tras otro. Cuando la caja reaccione, pulsa <b>⏸ Pausa</b>, usa ◀ −1 / Reenviar hasta ver cuál lo provoca y asígnalo a un botón. Puede encender o apagar la caja, abrir menús, etc.</p>
+  <label>Familia / dirección</label>
+  <select id="sc_pre">
+    <option value="02FE">02 FE · Transpeed / Allwinner</option>
+    <option value="08F7">08 F7 · Android Box genérica</option>
+    <option value="0100">01 00 · Mi Box / M8</option>
+    <option value="00FF">00 FF · NEC genérica</option>
+    <option value="04FB">04 FB</option>
+    <option value="40BF">40 BF</option>
+    <option value="10EF">10 EF</option>
+    <option value="">Otra (escribirla abajo)</option>
+  </select>
+  <input id="sc_ad" maxlength="4" value="02FE" autocomplete="off" autocapitalize="characters" placeholder="4 dígitos hex, p. ej. 02FE">
+  <label>Pausa entre comandos <span id="sc_v">300 ms</span><input type="range" id="sc_sp" min="120" max="1000" step="10" value="300"></label>
+  <div class="row"><button id="sc_go" class="main" type="button">▶ Empezar</button><button id="sc_p" type="button">⏸ Pausa</button></div>
+  <p id="sc_info"><b>Parado</b></p>
+  <div class="row"><button id="sc_prev" type="button">◀ −1</button><button id="sc_re" type="button">Reenviar</button><button id="sc_next" type="button">+1 ▶</button></div>
+  <label>Asignar este comando a</label><select id="sc_key"></select>
+  <div class="row"><button id="sc_as" class="main" type="button">Asignar</button><button id="sc_x" type="button">Cerrar</button></div>
 </div>
 
 <div id="m_addp" class="pan top0" hidden>
@@ -323,7 +347,7 @@ function androidLayout(){
   function ui(){var busy=rec||running;
     $("m_mb").hidden=busy||edit;$("m_cfg").hidden=busy||edit;$("m_pf").hidden=busy||edit;
     $("m_rc").hidden=!busy;$("m_rs").hidden=!rec;$("m_ed").hidden=!edit;$("m_ad").hidden=!edit}
-  function closePanels(){["m_set","m_mac","m_addp","m_prof"].forEach(function(id){$(id).hidden=true})}
+  function closePanels(){["m_set","m_mac","m_addp","m_prof","m_scan"].forEach(function(id){$(id).hidden=true})}
 
   /* ---------- ajustes ---------- */
   function mkSw(el,cb,get){el.innerHTML=COLORS.map(function(c){return'<button type="button" data-c="'+c+'" style="background:'+c+'" aria-label="'+c+'"></button>'}).join("");
@@ -458,6 +482,35 @@ function androidLayout(){
     say("Mando Android TV creado. Prueba encender y volumen; si falla, edita los códigos","ok")});
   $("p_ren").addEventListener("click",function(){var nm=($("p_nm").value||"").trim();if(!nm){say("Escribe el nuevo nombre","err");return}
     prof.name=nm;persist();updPf();renderProf();$("p_nm").value="";say("Renombrado","ok")});
+
+  /* ---------- buscador de códigos NEC ---------- */
+  var sc={cmd:0,run:false,t:null,sent:false};
+  function scAddr(){var v=($("sc_ad").value||"").trim();if(!/^[0-9A-Fa-f]{4}$/.test(v))return null;return[parseInt(v.slice(0,2),16),parseInt(v.slice(2,4),16)]}
+  function scSend(){var a=scAddr();if(!a){$("sc_info").innerHTML="<b>Dirección no válida (4 dígitos hex)</b>";return false}
+    if(!NB||noIr){$("sc_info").innerHTML="<b>Sin emisor IR</b>";return false}
+    var r=irNec(a[0],a[1],sc.cmd),res=NB.irSend(r.freq,r.pattern.join(","));sc.sent=true;
+    var h=sc.cmd.toString(16).toUpperCase();if(h.length<2)h="0"+h;
+    $("sc_info").innerHTML="<b>Comando 0x"+h+"</b> ("+sc.cmd+" de 255) · dirección "+$("sc_ad").value.toUpperCase()+(res!=="ok"?" · <span style='color:#c0392b'>error: "+res+"</span>":"");
+    return res==="ok"}
+  function scStop(){sc.run=false;clearTimeout(sc.t);$("sc_p").textContent="⏸ Pausa"}
+  function scLoop(){if(!sc.run)return;if(!scSend()){scStop();return}
+    sc.t=setTimeout(function(){if(!sc.run)return;if(sc.cmd>=255){scStop();$("sc_info").innerHTML+=" · <b>Fin del barrido</b>";return}sc.cmd++;scLoop()},+$("sc_sp").value)}
+  $("s_scan").addEventListener("click",function(){closePanels();
+    $("sc_key").innerHTML=Object.keys(SAM_KEYS).map(function(k){return'<option value="'+k+'">'+esc(SAM_NAMES[k]||k)+'</option>'}).join("");
+    $("m_scan").hidden=false});
+  $("sc_x").addEventListener("click",function(){scStop();$("m_scan").hidden=true});
+  $("sc_pre").addEventListener("change",function(){if(this.value)$("sc_ad").value=this.value;scStop()});
+  $("sc_sp").addEventListener("input",function(){$("sc_v").textContent=this.value+" ms"});
+  $("sc_go").addEventListener("click",function(){scStop();sc.cmd=0;sc.run=true;scLoop()});
+  $("sc_p").addEventListener("click",function(){if(sc.run){scStop();$("sc_p").textContent="⏵ Continuar"}
+    else if(sc.sent&&sc.cmd<255){sc.cmd++;sc.run=true;$("sc_p").textContent="⏸ Pausa";scLoop()}});
+  $("sc_prev").addEventListener("click",function(){scStop();sc.cmd=Math.max(0,sc.cmd-1);scSend();$("sc_p").textContent="⏵ Continuar"});
+  $("sc_next").addEventListener("click",function(){scStop();sc.cmd=Math.min(255,sc.cmd+1);scSend();$("sc_p").textContent="⏵ Continuar"});
+  $("sc_re").addEventListener("click",function(){scStop();scSend();$("sc_p").textContent="⏵ Continuar"});
+  $("sc_as").addEventListener("click",function(){var a=scAddr();if(!a||!sc.sent){$("sc_info").innerHTML="<b>Primero prueba un comando</b>";return}
+    var k=$("sc_key").value;custom[k]=necHex(a[0],a[1],sc.cmd);if(cfg.proto!=="nec")cfg.proto="nec";persist();draw();
+    $("sc_info").innerHTML="<b>Asignado a «"+esc(SAM_NAMES[k]||k)+"»</b> (0x"+sc.cmd.toString(16).toUpperCase()+"). Elige otro botón para el mismo comando o sigue buscando.";
+    say("Código asignado a "+(SAM_NAMES[k]||k),"ok")});
 
   updPf();ui();draw();
 })();
